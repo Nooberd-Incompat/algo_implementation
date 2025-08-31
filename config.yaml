@@ -1,0 +1,47 @@
+# -----------------------------------------------------------------------------
+# Configuration for the Federated Learning Bidding Simulation
+# -----------------------------------------------------------------------------
+
+# Phase 1: Parameters for the bidding and convergence simulation
+simulation_params:
+  N: 10              # Number of organizations/clients
+  K: 5               # Number of local updates per round (in simulation)
+  T: 60.0            # Total training time in seconds (in simulation)
+  max_iterations: 500  # Max iterations for the bidding algorithm to converge
+
+  # Heterogeneous valuations for organizations
+  # First half of clients will get 'u_low', second half 'u_high'
+  u_low: 4.0
+  u_high: 16.0
+
+  # Algorithm hyperparameters for the simulation
+  rho: 0.0007        # Penalty coefficient
+  eta: 0.1           # Step size
+  phi: 0.0001        # Convergence threshold for gamma
+
+  # System parameters (can be adjusted based on environment)
+  model_size_mbits: 0.16
+  dl_speed_mbps: 78.26
+  ul_speed_mbps: 42.06
+  investment_cost_per_ghz_hour: 0.22
+  electricity_rate_kwh: 0.174
+  dl_energy_joules_per_mbit: 3.0
+  ul_energy_joules_per_mbit: 3.0
+  epsilon_0: 9.82
+  epsilon_1: 4.26
+
+# Phase 2: Parameters for the actual Federated Learning training with Flower
+federated_learning_params:
+  total_rounds: 10    # Total rounds of federated training
+  fraction_fit: 1.0   # Fraction of clients to train on each round
+  fraction_evaluate: 1.0 # Fraction of clients to evaluate on each round
+
+# Parameters for the Machine Learning model and training process
+model_params:
+  lr: 0.001          # Learning rate for the client optimizer (SGD)
+  momentum: 0.9      # Momentum for the client optimizer (SGD)
+
+# Parameters for data loading and partitioning
+data_params:
+  batch_size: 32
+  partition_seed: 42 # Seed for reproducible data splitting

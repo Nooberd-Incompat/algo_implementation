@@ -29,19 +29,23 @@ simulation_params:
   ul_energy_joules_per_mbit: 3.0
   epsilon_0: 9.82
   epsilon_1: 4.26
+  local_epochs: 10  # Number of local epochs per client
 
 # Phase 2: Parameters for the actual Federated Learning training with Flower
 federated_learning_params:
-  total_rounds: 10    # Total rounds of federated training
-  fraction_fit: 1.0   # Fraction of clients to train on each round
-  fraction_evaluate: 1.0 # Fraction of clients to evaluate on each round
+  total_rounds: 5    # Total rounds of federated training
+  fraction_fit: 0.75   # Fraction of clients to train on each round
+  fraction_evaluate: 0.25 # Fraction of clients to evaluate on each round
+  local_epochs: 10  # Number of local epochs per client
 
 # Parameters for the Machine Learning model and training process
 model_params:
-  lr: 0.001          # Learning rate for the client optimizer (SGD)
+  lr: 0.01          # Learning rate for the client optimizer (SGD)
   momentum: 0.9      # Momentum for the client optimizer (SGD)
+  local_epochs: 10  # Number of local epochs per client
 
 # Parameters for data loading and partitioning
 data_params:
   batch_size: 32
   partition_seed: 42 # Seed for reproducible data splitting
+  local_epochs: 10  # Number of local epochs per client

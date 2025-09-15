@@ -10,11 +10,12 @@ from flwr.common import (
 from flwr.server.client_proxy import ClientProxy
 
 class BiddingBasedStrategy(fl.server.strategy.FedAvg):
-    def __init__(self, gamma_values: Dict[str, float], model_config: dict, **kwargs):
+    # --- MODIFIED: Accept epoch_values instead of gamma_values ---
+    def __init__(self, epoch_values: Dict[str, float], model_config: dict, **kwargs):
         super().__init__(**kwargs)
-        self.gamma_values = gamma_values
+        self.epoch_values = epoch_values
         self.model_config = model_config
-        print(f"Strategy initialized with gamma values: {self.gamma_values}")
+        print(f"Strategy initialized with epoch values: {self.epoch_values}")
 
     def configure_fit(
         self, server_round: int, parameters: Parameters, client_manager: fl.server.client_manager.ClientManager
@@ -25,8 +26,9 @@ class BiddingBasedStrategy(fl.server.strategy.FedAvg):
         custom_instructions = []
         for client, fit_ins in configured_clients:
             cid = client.cid
-            gamma_n = self.gamma_values.get(cid, 1.0)
-            local_epochs = max(1, round(gamma_n))
+            # --- MODIFIED: Use epoch_values to determine local_epochs ---
+            epoch_n = self.epoch_values.get(cid, 1.0) # Default to 1 if not found
+            local_epochs = max(1, int(round(epoch_n)))
             
             fit_ins.config = self.model_config.copy() 
             fit_ins.config["local_epochs"] = local_epochs

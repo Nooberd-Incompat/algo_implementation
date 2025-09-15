@@ -28,6 +28,7 @@ class FlowerClient(fl.client.NumPyClient):
         self.set_parameters(parameters)
         
         local_epochs = int(config["local_epochs"])
+        # local_epochs = 10 
         lr = float(config["lr"])
         momentum = float(config["momentum"])
         

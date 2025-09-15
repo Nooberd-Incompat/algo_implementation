@@ -2,22 +2,42 @@ import torch
 import torchvision
 import torchvision.transforms as transforms
 from torch.utils.data import DataLoader, random_split
+from typing import List
+# --- MODIFIED: Import Organization to access power weights ---
+from simulation import Organization 
 
-def load_and_partition_data(num_clients: int, batch_size: int, seed: int):
-    """Load MNIST and create data partitions."""
-    # The transform needs to be updated for MNIST (1 channel)
+# --- MODIFIED: Function signature and logic are completely new ---
+def load_and_partition_data(organizations: List[Organization], batch_size: int, seed: int):
+    """
+    Load MNIST and create data partitions proportional to organization power_weight.
+    """
     transform = transforms.Compose(
-        [transforms.ToTensor(), transforms.Normalize((0.5,), (0.5,))] # Update normalization for 1-channel grayscale
+        [transforms.ToTensor(), transforms.Normalize((0.5,), (0.5,))]
     )
-    # Change the dataset from CIFAR10 to MNIST
     trainset = torchvision.datasets.MNIST(root='./data', train=True, download=True, transform=transform)
     testset = torchvision.datasets.MNIST(root='./data', train=False, download=True, transform=transform)
     
-    # The rest of the function remains the same
-    partition_size = len(trainset) // num_clients
-    lengths = [partition_size] * num_clients
-    datasets = random_split(trainset, lengths, torch.Generator().manual_seed(seed))
+    # --- Proportional Splitting Logic ---
+    total_train_size = len(trainset)
+    power_weights = torch.tensor([org.power_weight for org in organizations])
+    
+    # Calculate partition sizes based on weights
+    proportions = power_weights / torch.sum(power_weights)
+    partition_sizes = (proportions * total_train_size).int().tolist()
+    
+    # Adjust for rounding errors to ensure the sum matches the total dataset size
+    current_total = sum(partition_sizes)
+    diff = total_train_size - current_total
+    for i in range(diff):
+        partition_sizes[i] += 1
+    
+    print(f"\nProportionally partitioning data based on power weights. Partition sizes: {partition_sizes}")
+
+    # Split the dataset using the calculated proportional lengths
+    datasets = random_split(trainset, partition_sizes, torch.Generator().manual_seed(seed))
 
     trainloaders = [DataLoader(ds, batch_size=batch_size, shuffle=True) for ds in datasets]
     testloader = DataLoader(testset, batch_size=batch_size)
-    return trainloaders, testloader 
+    
+    # Return the partition sizes so we can update the Organization objects
+    return trainloaders, testloader, partition_sizes

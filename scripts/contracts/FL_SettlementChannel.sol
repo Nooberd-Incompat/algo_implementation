@@ -3,47 +3,43 @@ pragma solidity ^0.8.19;
 
 /**
  * @title FL_SettlementChannel
- * @author Gemini
+ * @author Yojith Kaustabh
  * @notice A multi-party state channel to settle payments for a Cross-Silo
  * Federated Learning incentive mechanism. This contract acts as a trusted
  * escrow and settlement layer.
  */
 contract FL_SettlementChannel {
-
     // --- State Variables ---
-
     enum ChannelState { Open, Closed }
     ChannelState public currentState;
+    
+    address public immutable coordinator; // The address of the trusted coordinator
 
     uint256 public constant DURATION = 24 hours;
     uint256 public immutable closeDeadline;
 
     address[] public participants;
-    // Mapping from participant address to their initial net balance (positive = receive, negative = pay)
     mapping(address => int256) public netBalances;
-    // Mapping to track funds deposited by payers
     mapping(address => uint256) public depositedFunds;
 
     uint256 public totalRequiredFromPayers;
     uint256 public nonce;
 
     // --- Events ---
-
-    event ChannelOpened(address[] participants, int256[] balances);
-    event FundsDeposited(address indexed payer, uint256 amount);
+    event ChannelOpened(address[] participants, int256[] balances, address coordinator);
+    event FundsDeposited(address indexed coordinator, uint256 totalAmount);
     event ChannelClosed(uint256 finalNonce);
-
-
-    // --- Functions ---
 
     /**
      * @notice Deploys the contract, opening the channel.
      * @param _participants An array of all participant addresses.
      * @param _netBalances An array of the corresponding net balances.
+     * @param _coordinator The address of the trusted coordinator for batch deposits.
      */
-    constructor(address[] memory _participants, int256[] memory _netBalances) {
+    constructor(address[] memory _participants, int256[] memory _netBalances, address _coordinator) {
         require(_participants.length == _netBalances.length, "Input arrays must have same length");
         
+        coordinator = _coordinator;
         participants = _participants;
         int256 balanceSum = 0;
         uint256 requiredDeposit = 0;
@@ -63,30 +59,34 @@ contract FL_SettlementChannel {
         closeDeadline = block.timestamp + DURATION;
         nonce = 0;
 
-        emit ChannelOpened(_participants, _netBalances);
+        emit ChannelOpened(_participants, _netBalances, _coordinator);
     }
-
+    
     /**
-     * @notice Allows payers to deposit their owed funds into the contract.
+     * @notice Allows the trusted coordinator to deposit funds on behalf of multiple payers.
+     * @param _payers The list of addresses the coordinator is depositing for.
      */
-    function deposit() external payable {
+    function batchDeposit(address[] memory _payers) external payable {
+        require(msg.sender == coordinator, "Only the coordinator can call this function");
         require(currentState == ChannelState.Open, "Channel is not open");
-        int256 balance = netBalances[msg.sender];
-        require(balance < 0, "Only payers can deposit");
+        
+        uint256 totalAmountFromPayers = 0;
+        for (uint i = 0; i < _payers.length; i++) {
+            address payer = _payers[i];
+            int256 balance = netBalances[payer];
+            
+            require(balance < 0, "An address in the list is not a payer");
+            require(depositedFunds[payer] == 0, "One of the payers has already deposited");
 
-        uint256 requiredAmount = uint256(-balance);
-        require(msg.value == requiredAmount, "Must deposit exact owed amount");
-        require(depositedFunds[msg.sender] == 0, "Already deposited");
-
-        depositedFunds[msg.sender] = msg.value;
+            uint256 requiredAmount = uint256(-balance);
+            depositedFunds[payer] = requiredAmount;
+            totalAmountFromPayers += requiredAmount;
+        }
+        
+        require(msg.value == totalAmountFromPayers, "Incorrect total ETH sent for batch deposit");
         emit FundsDeposited(msg.sender, msg.value);
     }
 
-    /**
-     * @notice Closes the channel by providing the final state and all signatures.
-     * @param finalBalances The final balances of all participants (should be 0 for all).
-     * @param signatures An array of signatures, one from each participant in order.
-     */
     function closeChannel(int256[] memory finalBalances, bytes[] memory signatures) external {
         require(currentState == ChannelState.Open, "Channel is not open");
         require(block.timestamp <= closeDeadline, "Deadline has passed");
